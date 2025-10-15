@@ -42,7 +42,7 @@ The entire game logic is contained within `src/Pacman.cpp`. It uses the `iGraphi
 ### File Structure
 
 ```
-Packman_New/
+Packman/
 ├── Pacman.exe          # The compiled game executable.
 ├── README.md           # This documentation file.
 ├── assets/             # Contains all game assets.
