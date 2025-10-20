@@ -21,6 +21,8 @@ public:
     Pellet* getPelletAt(int gridX, int gridY);
     std::vector<Pellet>& getAllPellets();
     void resetPellets();
+    void addPellet(Pellet* pellet);
+    void loadLevel(int level);
     bool canMove(int gridX, int gridY, Direction dir) const;
 
 private:

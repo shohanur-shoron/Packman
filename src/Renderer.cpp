@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "Game.h"
 #include "core/Maze.h"
 #include "entities/Pacman.h"
 #include "entities/Ghost.h"
@@ -84,6 +85,67 @@ void Renderer::init() {
     if (!loadTexture("ghost_eaten_2", "src/assets/textures/gd2.png")) { 
         std::cerr << "Failed to load ghost_eaten_2" << std::endl; 
     }
+    if (!loadTexture("life3", "src/assets/textures/life3.png")) { std::cerr << "Failed to load life3" << std::endl; }
+    if (!loadTexture("life2", "src/assets/textures/life2.png")) { std::cerr << "Failed to load life2" << std::endl; }
+    if (!loadTexture("life1", "src/assets/textures/life1.png")) { std::cerr << "Failed to load life1" << std::endl; }
+    if (!loadTexture("speed", "src/assets/textures/speed.png")) { std::cerr << "Failed to load speed" << std::endl; }
+    if (!loadTexture("pacman-mainmenu", "src/assets/textures/pacman-mainmenu.png")) { std::cerr << "Failed to load pacman-mainmenu" << std::endl; }
+    if (!loadTexture("highscore", "src/assets/textures/highscore.png")) { std::cerr << "Failed to load highscore" << std::endl; }
+    if (!loadTexture("controls", "src/assets/textures/controls.png")) { std::cerr << "Failed to load controls" << std::endl; }
+}
+
+void Renderer::reshape(int width, int height) {
+    float aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+    int newWidth = width;
+    int newHeight = (int)(width / aspectRatio);
+
+    if (newHeight > height) {
+        newHeight = height;
+        newWidth = (int)(height * aspectRatio);
+    }
+
+    int x_offset = (width - newWidth) / 2;
+    int y_offset = (height - newHeight) / 2;
+
+    glViewport(x_offset, y_offset, newWidth, newHeight);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void Renderer::render(Game& game) {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    switch (game.getState()) {
+        case GameState::MENU:
+            game.getMenu().render(*this);
+            break;
+        case GameState::PLAYING:
+            if (game.getLevelManager()) game.getLevelManager()->render(*this);
+            break;
+        case GameState::PAUSED:
+            if (game.getLevelManager()) game.getLevelManager()->render(*this);
+            game.getPauseScreen().render(*this);
+            break;
+        case GameState::GAME_OVER:
+            if (game.getLevelManager()) game.getGameOverScreen().render(*this, game.getLevelManager()->getScore());
+            break;
+        case GameState::LEVEL_COMPLETE:
+            if (game.getLevelManager()) game.getLevelManager()->render(*this);
+            renderText("LEVEL COMPLETE!", Vector2D(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), Vector2D(0.0, 1.0, 0.0), true);
+            break;
+        case GameState::CONTROLS:
+            game.getMenu().renderControls(*this);
+            break;
+        case GameState::HIGH_SCORES:
+            game.getHighScoreScreen().render(*this);
+            break;
+    }
+
+    glutSwapBuffers();
 }
 
 // Renders the maze walls
@@ -92,7 +154,7 @@ void Renderer::renderMaze(const Maze& maze) {
         for (int x = 0; x < maze.getMazeWidth(); ++x) {
             if (maze.isWall(x, y)) {
                 std::pair<float, float> worldPos = maze.gridToWorld(x, y);
-                drawRectangle(worldPos.first, worldPos.second, TILE_SIZE, TILE_SIZE, 0.0f, 0.0f, 0.8f); // Blue walls
+                renderRectangle(Vector2D(worldPos.first + TILE_SIZE / 2, worldPos.second + TILE_SIZE / 2), Vector2D(TILE_SIZE, TILE_SIZE), Vector2D(0.0f, 0.0f, 0.8f)); // Blue walls
             }
         }
     }
@@ -127,6 +189,7 @@ void Renderer::renderPellets(const std::vector<Pellet>& pellets, const Maze& maz
     unsigned int foodTexture = textures["food"];
     unsigned int cherryTexture = textures["cherry"];
     unsigned int strawberryTexture = textures["strawberry"];
+    unsigned int speedTexture = textures["speed"];
 
     for (const auto& pellet : pellets) {
         if (pellet.isActive()) {
@@ -142,6 +205,11 @@ void Renderer::renderPellets(const std::vector<Pellet>& pellets, const Maze& maz
                 float strawberrySize = TILE_SIZE * 0.8f;
                 float offset = (TILE_SIZE - strawberrySize) / 2.0f;
                 renderTexture(strawberryTexture, worldPos.first + offset, worldPos.second + offset, strawberrySize, strawberrySize);
+            } else if (pellet.getType() == SPEED_BOOST) {
+                // Render the speed boost power-up
+                float speedSize = TILE_SIZE * 0.8f;
+                float offset = (TILE_SIZE - speedSize) / 2.0f;
+                renderTexture(speedTexture, worldPos.first + offset, worldPos.second + offset, speedSize, speedSize);
             } else {
                 // Render regular food/power pellets
                 float foodSize = TILE_SIZE / 2.0f; // Make it half the size of the tile
@@ -170,34 +238,75 @@ void Renderer::renderText(const std::string& text, Vector2D position, Vector2D c
 
 // Renders the lives indicator in the top-left corner
 void Renderer::renderLives(int lives) {
-    glColor3f(1.0f, 1.0f, 0.0f); // Yellow
-    int segments = 20;
-    float radius = 10.0f;
-    for (int i = 0; i < lives; ++i) {
-        float cx = 20.0f + i * 30.0f;
-        float cy = WINDOW_HEIGHT - 50.0f;
-        glBegin(GL_TRIANGLE_FAN);
-        glVertex2f(cx, cy);
-        for (int j = 0; j <= segments; j++) {
-            float angle = 2.0f * 3.14159f * j / segments;
-            float dx = radius * cos(angle);
-            float dy = radius * sin(angle);
-            glVertex2f(cx + dx, cy + dy);
-        }
+    if (lives < 1) return;
+    std::string textureName = "life" + std::to_string(lives);
+    unsigned int textureID = textures[textureName];
+    renderTexture(textureID, 10, WINDOW_HEIGHT - 60, 100, 40);
+}
+
+
+void Renderer::renderRectangle(Vector2D position, Vector2D size, Vector2D color, bool fill) {
+    glColor3f(color.x, color.y, color.z);
+    if (fill) {
+        glBegin(GL_QUADS);
+        glVertex2f(position.x - size.x / 2, position.y - size.y / 2);
+        glVertex2f(position.x + size.x / 2, position.y - size.y / 2);
+        glVertex2f(position.x + size.x / 2, position.y + size.y / 2);
+        glVertex2f(position.x - size.x / 2, position.y + size.y / 2);
+        glEnd();
+    } else {
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(position.x - size.x / 2, position.y - size.y / 2);
+        glVertex2f(position.x + size.x / 2, position.y - size.y / 2);
+        glVertex2f(position.x + size.x / 2, position.y + size.y / 2);
+        glVertex2f(position.x - size.x / 2, position.y + size.y / 2);
         glEnd();
     }
 }
 
-// Helper function to draw a simple colored rectangle
-void Renderer::drawRectangle(float x, float y, float width, float height, float r, float g, float b) {
-    glColor3f(r, g, b);
-    glBegin(GL_QUADS);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
+void Renderer::renderRoundedRectangle(Vector2D position, Vector2D size, Vector2D color, float radius, bool fill) {
+    glColor3f(color.x, color.y, color.z);
+    float x = position.x - size.x / 2;
+    float y = position.y - size.y / 2;
+    float width = size.x;
+    float height = size.y;
+
+    if (fill) {
+        glBegin(GL_POLYGON);
+    } else {
+        glBegin(GL_LINE_LOOP);
+    }
+
+    // Bottom-left corner
+    for (int i = 180; i <= 270; i++) {
+        float angle = i * 3.14159 / 180;
+        glVertex2f(x + radius * cos(angle) + radius, y + radius * sin(angle) + radius);
+    }
+    // Top-left corner
+    for (int i = 270; i <= 360; i++) {
+        float angle = i * 3.14159 / 180;
+        glVertex2f(x + radius * cos(angle) + radius, y + height - radius + radius * sin(angle));
+    }
+    // Top-right corner
+    for (int i = 0; i <= 90; i++) {
+        float angle = i * 3.14159 / 180;
+        glVertex2f(x + width - radius + radius * cos(angle), y + height - radius + radius * sin(angle));
+    }
+    // Bottom-right corner
+    for (int i = 90; i <= 180; i++) {
+        float angle = i * 3.14159 / 180;
+        glVertex2f(x + width - radius + radius * cos(angle), y + radius * sin(angle) + radius);
+    }
+
     glEnd();
 }
+
+unsigned int Renderer::getTexture(const std::string& name) {
+    return textures[name];
+}
+
+// Helper function to draw a simple colored rectangle
+
 
 bool Renderer::loadTexture(const std::string& name, const char* filename) {
     unsigned int textureID;

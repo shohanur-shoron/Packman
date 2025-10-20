@@ -2,18 +2,20 @@
 #include "../utils/Constants.h"
 #include "../Renderer.h"
 #include "../InputHandler.h"
+#include "../AudioManager.h"
 #include <GL/glut.h>
 #include <cmath>
 #include <iostream>
 
-Pacman::Pacman(int startGridX, int startGridY)
-    : gridX(startGridX), gridY(startGridY),
+Pacman::Pacman(int startGridX, int startGridY, AudioManager& audioManager)
+    : audioManager(audioManager),
+      gridX(startGridX), gridY(startGridY),
       startGridX(startGridX), startGridY(startGridY),
       currentDir(NONE), nextDir(NONE),
       speed(5.0f), // Tiles per second
       alive(true), progress(0.0f),
       animationTimer(0.0f), animationFrame(0), textureName("pacman_right_half"),
-      dying(false) {
+      dying(false), speedBoosted(false) {
 }
 
 void Pacman::update(float deltaTime, Maze& maze) {
@@ -31,6 +33,14 @@ void Pacman::update(float deltaTime, Maze& maze) {
 
     if (!alive) return;
 
+    float currentSpeed = speedBoosted ? speed * 1.5f : speed;
+
+    if (currentDir == NONE) {
+        if (audioManager.isLoopingSoundPlaying()) {
+            audioManager.stopLoopingSound();
+        }
+    }
+
     // At a tile center
     if (progress == 0.0f) {
         // Check if we can turn
@@ -44,20 +54,18 @@ void Pacman::update(float deltaTime, Maze& maze) {
     }
 
     if (currentDir != NONE) {
-        progress += speed * deltaTime;
+        progress += currentSpeed * deltaTime;
         if (progress >= 1.0f) {
             progress = 0.0f;
             gridX += (currentDir == RIGHT) - (currentDir == LEFT);
             gridY += (currentDir == UP) - (currentDir == DOWN);
 
-            if (gridY == 10) { // Tunnel is on this row
-                if (gridX < 0) {
-                    gridX = MAZE_WIDTH - 1;
-                    snapToGrid(maze);
-                } else if (gridX >= MAZE_WIDTH) {
-                    gridX = 0;
-                    snapToGrid(maze);
-                }
+            if (gridX < 0) {
+                gridX = MAZE_WIDTH - 1;
+                snapToGrid(maze);
+            } else if (gridX >= MAZE_WIDTH) {
+                gridX = 0;
+                snapToGrid(maze);
             }
         }
     }
@@ -129,12 +137,13 @@ void Pacman::reset() {
     alive = true;
     progress = 0.0f;
     dying = false;
+    speedBoosted = false;
     animationFrame = 0;
     animationTimer = 0.0f;
     textureName = "pacman_right_half";
 }
 
-void Pacman::die() {
+void Pacman::die(AudioManager& audioManager) {
     if (dying) return; // Prevent re-triggering
     std::cout << "Pacman die() called - starting death animation" << std::endl;
     dying = true;
@@ -142,6 +151,7 @@ void Pacman::die() {
     animationTimer = 0.0f;
     animationFrame = 0;
     textureName = "pd_0";
+    audioManager.playSound("src/assets/audio/pacman_death.wav");
 }
 
 bool Pacman::isDeathAnimationComplete() const {
@@ -150,6 +160,10 @@ bool Pacman::isDeathAnimationComplete() const {
 
 bool Pacman::isDying() const {
     return dying;
+}
+
+void Pacman::setSpeedBoosted(bool boosted) {
+    speedBoosted = boosted;
 }
 
 std::pair<int, int> Pacman::getGridPosition() const {

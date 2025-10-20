@@ -12,9 +12,11 @@
 #include "Maze.h"
 #include "ScoreManager.h"
 
+#include "../AudioManager.h"
+
 class LevelManager {
 public:
-    LevelManager();
+    LevelManager(AudioManager& audioManager);
     ~LevelManager();
 
     void update();
@@ -28,14 +30,17 @@ public:
     void nextLevel();
     void loseLife();
     void activatePowerPellet();
+    void activateSpeedBoost();
 
 private:
     void resetPositions();
     void checkPelletCollision();
     void checkGhostCollision();
 
+    AudioManager& audioManager;
+    int level;
     int lives;
-    Pacman pacman;
+    Pacman* pacman;
     Blinky* blinky;
     Pinky* pinky;
     Inky* inky;
@@ -46,6 +51,8 @@ private:
 
     float powerPelletTimer;
     bool powerPelletActive;
+    float speedBoostTimer;
+    bool speedBoostActive;
     float modeTimer;
     GhostState currentGhostMode;
     float deathAnimationTimer;

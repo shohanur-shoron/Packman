@@ -1,11 +1,13 @@
 #include <GL/glut.h>
 #include "Game.h"
+#include "Renderer.h"
 #include "utils/Constants.h"
 
 Game game;
+Renderer renderer;
 
 void display() {
-    game.render();
+    renderer.render(game);
 }
 
 void update(int value) {
@@ -34,13 +36,17 @@ void specialUp(int key, int x, int y) {
     game.getInputHandler()->releaseSpecialKey(key);
 }
 
+void mouse(int button, int state, int x, int y) {
+    game.getInputHandler()->setMouseButton(button, state);
+    game.getInputHandler()->setMousePosition(x, WINDOW_HEIGHT - y);
+}
+
+void passiveMotion(int x, int y) {
+    game.getInputHandler()->setMousePosition(x, WINDOW_HEIGHT - y);
+}
+
 void reshape(int width, int height) {
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0.0, WINDOW_WIDTH, 0.0, WINDOW_HEIGHT, -1.0, 1.0);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    renderer.reshape(width, height);
 }
 
 int main(int argc, char** argv) {
@@ -50,6 +56,7 @@ int main(int argc, char** argv) {
     glutCreateWindow("Pacman");
 
     game.init(); // <-- ADD THIS LINE
+    renderer.init();
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
@@ -57,6 +64,8 @@ int main(int argc, char** argv) {
     glutKeyboardUpFunc(keyboardUp);
     glutSpecialFunc(special);
     glutSpecialUpFunc(specialUp);
+    glutMouseFunc(mouse);
+    glutPassiveMotionFunc(passiveMotion);
 
     glutTimerFunc(0, update, 0);
 

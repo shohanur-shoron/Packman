@@ -1,10 +1,11 @@
 #include "Game.h"
 #include "utils/Constants.h"
+#include "utils/FileIO.h"
 #include <GL/glut.h>
 #include <cstdlib> // For srand
 #include <ctime>   // For time
 
-Game::Game() : currentState(GameState::MENU), running(true), levelCompleteTimer(0.0f), levelManager(nullptr) {}
+Game::Game() : currentState(GameState::MENU), running(true), fullscreen(false), levelCompleteTimer(0.0f), levelManager(nullptr), n_key_press_count(0), last_n_press_time(0.0f) {}
 
 Game::~Game() {
     delete levelManager; // Clean up memory
@@ -15,15 +16,26 @@ void Game::init() {
     srand(static_cast<unsigned int>(time(0))); 
     
     // Create the LevelManager which holds the game state (maze, entities, etc.)
-    levelManager = new LevelManager();
+    levelManager = new LevelManager(audioManager);
 
     // Initialize the renderer. This function will now handle loading all
     // necessary game textures (like food.png) and setting up STB_image.
     renderer.init();
+    
+    // Start menu music
+    audioManager.playMusic("src/assets/audio/playing-pac-man-6783.mp3");
 }
 
 void Game::update() {
     handleInput(); // Handle input first
+
+    if (n_key_press_count > 0) {
+        last_n_press_time += 1.0f / 60.0f; // Assuming 60 FPS
+        if (last_n_press_time > 0.5f) { // Reset after 0.5 seconds
+            n_key_press_count = 0;
+            last_n_press_time = 0.0f;
+        }
+    }
 
     switch (currentState) {
         case GameState::PLAYING:
@@ -53,48 +65,50 @@ void Game::update() {
 }
 
 void Game::render() {
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    switch (currentState) {
-        case GameState::MENU:
-            menu.render(renderer);
-            break;
-        case GameState::PLAYING:
-            if (levelManager) levelManager->render(renderer);
-            break;
-        case GameState::PAUSED:
-            if (levelManager) levelManager->render(renderer);
-            pauseScreen.render(renderer);
-            break;
-        case GameState::GAME_OVER:
-            if (levelManager) gameOverScreen.render(renderer, levelManager->getScore());
-            break;
-        case GameState::LEVEL_COMPLETE:
-            if (levelManager) levelManager->render(renderer);
-            renderer.renderText("LEVEL COMPLETE!", Vector2D(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), Vector2D(0.0, 1.0, 0.0), true);
-            break;
-        case GameState::CONTROLS:
-            menu.renderControls(renderer);
-            break;
-    }
-
-    glutSwapBuffers();
+    renderer.render(*this);
 }
 
 void Game::handleInput() {
+    if (inputHandler.wasFKeyPressed()) {
+        toggleFullscreen();
+    }
+
+    if (inputHandler.wasKeyPressed('n')) {
+        n_key_press_count++;
+        last_n_press_time = 0.0f;
+        if (n_key_press_count == 2) {
+            if (currentState == GameState::PLAYING && levelManager) {
+                levelManager->nextLevel();
+            }
+            n_key_press_count = 0;
+        }
+    }
+
     switch (currentState) {
-        case GameState::MENU:
-            if (inputHandler.wasKeyPressed('1')) {
-                if (levelManager) levelManager->reset();
-                setState(GameState::PLAYING);
-            } else if (inputHandler.wasKeyPressed('2')) {
-                // Not implemented
-            } else if (inputHandler.wasKeyPressed('3')) {
-                setState(GameState::CONTROLS);
-            } else if (inputHandler.wasKeyPressed('4') || inputHandler.wasKeyPressed(27)) { // 27 is ESC
-                running = false;
+        case GameState::MENU: {
+            menu.handleInput(inputHandler, audioManager);
+            int selectedOption = menu.getSelectedOption();
+            if (selectedOption != -1) {
+                menu.reset();
+                switch (selectedOption) {
+                    case 0: // New Game
+                        if (levelManager) levelManager->reset();
+                        setState(GameState::PLAYING);
+                        break;
+                    case 1: // High Scores
+                        highScoreScreen.loadHighScores();
+                        setState(GameState::HIGH_SCORES);
+                        break;
+                    case 2: // Controls
+                        setState(GameState::CONTROLS);
+                        break;
+                    case 3: // Exit
+                        running = false;
+                        break;
+                }
             }
             break;
+        }
         case GameState::PLAYING:
             if (inputHandler.wasKeyPressed('p') || inputHandler.wasKeyPressed('P')) {
                 setState(GameState::PAUSED);
@@ -108,14 +122,37 @@ void Game::handleInput() {
                 setState(GameState::PLAYING);
             }
             break;
-        case GameState::GAME_OVER:
-            if (inputHandler.wasKeyPressed(13) || inputHandler.wasKeyPressed(27)) { // 13 is Enter, 27 is ESC
+        case GameState::GAME_OVER: {
+            gameOverScreen.handleInput(inputHandler, audioManager);
+            int selectedOption = gameOverScreen.getSelectedOption();
+            if (selectedOption != -1) {
+                gameOverScreen.reset();
+                switch (selectedOption) {
+                    case 0: // Start Again
+                        FileIO::saveHighScore(levelManager->getScore(), "src/assets/highscores.txt");
+                        if (levelManager) levelManager->reset();
+                        setState(GameState::PLAYING);
+                        break;
+                    case 1: // Main Menu
+                        FileIO::saveHighScore(levelManager->getScore(), "src/assets/highscores.txt");
+                        setState(GameState::MENU);
+                        break;
+                }
+            }
+            break;
+        }
+        case GameState::CONTROLS: {
+            menu.handleControlsInput(inputHandler, audioManager);
+            if (menu.shouldReturnToMenu()) {
+                menu.reset();
                 setState(GameState::MENU);
             }
             break;
-        case GameState::CONTROLS:
-            // Exit controls screen on ESC or Enter
-            if (inputHandler.wasKeyPressed(27) || inputHandler.wasKeyPressed(13)) {
+        }
+        case GameState::HIGH_SCORES:
+            highScoreScreen.handleInput(inputHandler, audioManager);
+            if (highScoreScreen.shouldReturnToMenu()) {
+                highScoreScreen.reset();
                 setState(GameState::MENU);
             }
             break;
@@ -133,6 +170,14 @@ InputHandler* Game::getInputHandler() {
 }
 
 void Game::setState(GameState newState) {
+    if (newState == currentState) return;
+
+    if ((newState == GameState::MENU || newState == GameState::HIGH_SCORES || newState == GameState::CONTROLS) && !audioManager.isMusicPlaying()) {
+        audioManager.playMusic("src/assets/audio/playing-pac-man-6783.mp3");
+    } else if (newState != GameState::MENU && newState != GameState::HIGH_SCORES && newState != GameState::CONTROLS && audioManager.isMusicPlaying()) {
+        audioManager.stopMusic();
+    }
+
     currentState = newState;
     // When changing state, clear the input to avoid immediate state changes.
     inputHandler.update();
@@ -140,4 +185,14 @@ void Game::setState(GameState newState) {
 
 GameState Game::getState() const {
     return currentState;
+}
+
+void Game::toggleFullscreen() {
+    fullscreen = !fullscreen;
+    if (fullscreen) {
+        glutFullScreen();
+    } else {
+        glutPositionWindow(100, 100);
+        glutReshapeWindow(WINDOW_WIDTH, WINDOW_HEIGHT);
+    }
 }

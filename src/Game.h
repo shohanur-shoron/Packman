@@ -8,6 +8,10 @@
 #include "InputHandler.h"
 #include "Renderer.h"
 
+#include "ui/HighScoreScreen.h"
+
+#include "AudioManager.h"
+
 class Game {
 public:
     Game();
@@ -21,6 +25,13 @@ public:
     InputHandler* getInputHandler();
     void setState(GameState newState);
     GameState getState() const;
+    void toggleFullscreen();
+
+    Menu& getMenu() { return menu; }
+    GameOverScreen& getGameOverScreen() { return gameOverScreen; }
+    PauseScreen& getPauseScreen() { return pauseScreen; }
+    HighScoreScreen& getHighScoreScreen() { return highScoreScreen; }
+    LevelManager* getLevelManager() { return levelManager; }
 
 private:
     GameState currentState;
@@ -28,9 +39,14 @@ private:
     Menu menu;
     GameOverScreen gameOverScreen;
     PauseScreen pauseScreen;
+    HighScoreScreen highScoreScreen;
     InputHandler inputHandler;
     Renderer renderer;
+    AudioManager audioManager;
 
     bool running;
+    bool fullscreen;
     float levelCompleteTimer;
+    int n_key_press_count;
+    float last_n_press_time;
 };

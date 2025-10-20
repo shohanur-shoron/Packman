@@ -42,11 +42,14 @@ The entire game logic is contained within `src/Pacman.cpp`. It uses the `iGraphi
 ### File Structure
 
 ```
+PacmanGame\
 ├───pacman.exe
 ├───run.txt
 ├───external\
 │   └───miniaudio.h
 └───src\
+    ├───AudioManager.cpp
+    ├───AudioManager.h
     ├───Game.cpp
     ├───Game.h
     ├───InputHandler.cpp
@@ -57,8 +60,8 @@ The entire game logic is contained within `src/Pacman.cpp`. It uses the `iGraphi
     ├───stb_image.h
     ├───assets\
     │   ├───highscores.txt
-    │   ├───audio\ #sounds
-    │   └───textures\ #images
+    │   ├───audio\
+    │   └───textures\
     ├───core\
     │   ├───LevelManager.cpp
     │   ├───LevelManager.h
@@ -82,6 +85,8 @@ The entire game logic is contained within `src/Pacman.cpp`. It uses the `iGraphi
     │   ├───Pinky.cpp
     │   └───Pinky.h
     ├───ui\
+    │   ├───Button.cpp
+    │   ├───Button.h
     │   ├───GameOverScreen.cpp
     │   ├───GameOverScreen.h
     │   ├───HighScoreScreen.cpp
@@ -109,7 +114,7 @@ The entire game logic is contained within `src/Pacman.cpp`. It uses the `iGraphi
 3.  Run the following command to compile the game:
 
 ```bash
-g++ src/main.cpp src/Game.cpp src/core/Maze.cpp src/Renderer.cpp src/entities/Pacman.cpp src/InputHandler.cpp src/core/Pellet.cpp src/core/ScoreManager.cpp src/entities/Ghost.cpp src/entities/Blinky.cpp src/entities/Pinky.cpp src/entities/Inky.cpp src/entities/Clyde.cpp src/ui/Menu.cpp src/ui/GameOverScreen.cpp src/ui/PauseScreen.cpp src/core/LevelManager.cpp src/utils/Vector2D.cpp src/utils/FileIO.cpp src/utils/Collision.cpp -o pacman -lopengl32 -lglu32 -lfreeglut
+g++ src/main.cpp src/Game.cpp src/core/Maze.cpp src/Renderer.cpp src/entities/Pacman.cpp src/InputHandler.cpp src/core/Pellet.cpp src/core/ScoreManager.cpp src/entities/Ghost.cpp src/entities/Blinky.cpp src/entities/Pinky.cpp src/entities/Inky.cpp src/entities/Clyde.cpp src/ui/Menu.cpp src/ui/GameOverScreen.cpp src/ui/PauseScreen.cpp src/core/LevelManager.cpp src/utils/Vector2D.cpp src/utils/FileIO.cpp src/utils/Collision.cpp src/ui/Button.cpp src/ui/HighScoreScreen.cpp src/ui/HUD.cpp src/AudioManager.cpp -o pacman -lopengl32 -lglu32 -lfreeglut -lwinmm
 ```
 
 This will create a `Pacman.exe` file in the `Packman_New` directory.

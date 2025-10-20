@@ -1,6 +1,8 @@
 #ifndef PACMAN_H
 #define PACMAN_H
 
+class AudioManager; // Forward declaration
+
 #include "../core/Maze.h"
 #include "../utils/GameEnums.h"
 #include "../InputHandler.h"
@@ -13,7 +15,7 @@ class Renderer;
 
 class Pacman {
 public:
-    Pacman(int startGridX, int startGridY);
+    Pacman(int startGridX, int startGridY, AudioManager& audioManager);
 
     void update(float deltaTime, Maze& maze);
     void render(Renderer& renderer);
@@ -24,16 +26,23 @@ public:
     float getX() const { return x; }
     float getY() const { return y; }
     bool isAlive() const { return alive; }
-    void die();
+    void die(AudioManager& audioManager);
     void snapToGrid(Maze& maze);
     Direction getDirection() const { return currentDir; }
     const std::string& getTextureName() const;
     bool isDeathAnimationComplete() const;
     bool isDying() const;
+    void setSpeedBoosted(bool boosted);
 
 
 
 private:
+
+
+
+    AudioManager& audioManager;
+
+
 
     int gridX, gridY;
     float x, y;
@@ -44,6 +53,7 @@ private:
     
     float speed;
     bool alive;
+    bool speedBoosted;
     float progress; // Progress to the next tile (0 to 1)
 
     // Animation

@@ -1,6 +1,6 @@
 #pragma once
 
-enum PelletType { DOT, POWER_PELLET, CHERRY };
+enum PelletType { DOT, POWER_PELLET, CHERRY, SPEED_BOOST };
 
 class Pellet {
 public:

@@ -1,12 +1,13 @@
 #pragma once
 
-enum class GameState {
+enum GameState {
     MENU,
     PLAYING,
     PAUSED,
     GAME_OVER,
     LEVEL_COMPLETE,
-    CONTROLS
+    CONTROLS,
+    HIGH_SCORES
 };
 
 enum class GhostState {
